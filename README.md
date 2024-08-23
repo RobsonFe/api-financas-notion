@@ -14,10 +14,56 @@ Esse projeto consiste em uma API feita em Django Rest Framework integrada com o 
 
 ## **Instalação**
 
+- inicie Ambiente Virtual `venv`
+
+```bash
+python -m venv venv
+```
+
+**Ative o ambiente virtual**:
+
+- No Windows (cmd.exe):
+
+  ```sh
+  venv\Scripts\activate.bat
+  ```
+
+- No Windows (PowerShell):
+
+  ```sh
+  venv\Scripts\Activate.ps1
+  ```
+
+- No Git Bash ou Linux/Mac:
+
+  ```sh
+  source venv/Scripts/activate
+  ```
+
 Para instalar todas as ferramentas necessárias, basta utilizar o `requirements.txt`.
 
 ```python
 pip install -r requirements.txt
+```
+
+## Deixei um `.env` para você configurar suas variáveis de ambiente.
+
+- Instale a Biblioteca
+
+```bash
+pip install python-dotenv
+```
+
+**Exemplo de como deve ficar o `.env`, precisa apenas colocar o seu caminho.**
+
+```json
+SENHA_DO_BANCO_DE_DADOS= ' admin'
+```
+
+O nome do arquivo
+
+```vscode
+.env
 ```
 
 ## Endpoints da API
