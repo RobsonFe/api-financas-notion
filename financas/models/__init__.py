@@ -1,5 +1,5 @@
 from .entity import financas_model
 
-__all_ = [
+__All__ = [
     "financas_model"
 ]

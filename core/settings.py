@@ -102,12 +102,6 @@ DATABASES = {
     }
 }
 
-print(f"NOME_DO_BANCO: {os.getenv('NOME_DO_BANCO')}")
-print(f"USUARIO_DO_BANCO: {os.getenv('USUARIO_DO_BANCO')}")
-print(f"SENHA_DO_BANCO: {os.getenv('SENHA_DO_BANCO')}")
-print(f"HOST_DO_BANCO: {os.getenv('HOST_DO_BANCO')}")
-print(f"PORTA_DO_BANCO: {os.getenv('PORTA_DO_BANCO')}")
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
