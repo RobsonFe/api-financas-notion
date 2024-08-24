@@ -236,9 +236,9 @@ Esta API REST gerencia relatórios de finanças com os seguintes campos: `nome`,
     ```
 - **Respostas de Erro Comuns:**
   - **Código:** `400 Bad Request` – Se houver erro de validação nos dados.
-  - **Código:** `404 Not Found` – Se a tarefa com o ID fornecido não for encontrada.
+  - **Código:** `404 Not Found` – Se a finança com o ID fornecido não for encontrada.
 
-### 5. **Deletar Tarefa**
+### 5. **Deletar Finança**
 
 - **URL:** `/api/v1/financas/delete/{id}`
 - **Método:** `DELETE`
