@@ -182,6 +182,9 @@ class FinancasCreateView(generics.CreateAPIView):
                 }
             }
 
+            # Esses ID'de entradas facilitam o mapeamento  das informações vindas do Notion,
+            # considerando que cada campo da tabela no Notion tem um ID
+
             response = requests.post(url, json=payload, headers=headers)
 
             if response.status_code in [200, 201]:
@@ -217,7 +220,7 @@ class FinancasCreateView(generics.CreateAPIView):
                 return Response({"message": "Finança criada com sucesso", "data": serialized_notion}, status=status.HTTP_201_CREATED)
 
             else:
-                # Se a resposta do Notion não for 200 ou 201, trate o erro
+                # Se a resposta do Notion não for 200 ou 201, tratar o erro...
                 logger.error(
                     "Erro ao criar página no Notion: %s", response.text)
                 return Response({"message": "Erro ao criar finança no Notion"}, status=status.HTTP_400_BAD_REQUEST)
@@ -230,11 +233,80 @@ class FinancasCreateView(generics.CreateAPIView):
 class FinancasUpdateView(generics.UpdateAPIView):
     queryset = Financas.objects.all()
     serializer_class = FinancasSerializer
+    lookup_field = 'pk'
+
+    def update(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            data = request.data
+
+            # Atualizar no banco de dados
+            serializer = self.get_serializer(instance, data=data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            updated_notion = serializer.instance
+            # Atualizar a página do Notion
+
+            notion_update_data = {
+                "properties": {
+                    "umtC": {
+                        "number": data.get("entradas", 0)
+                    },
+                    "wFRQ": {
+                        "number": data.get("saidas", 0)
+                    },
+                    "~Pfs": {
+                        "number": data.get("saldo", 0)
+                    },
+                    "title": {
+                        "title": [
+                            {"text": {"content": data.get("nome", "")}}
+                        ]
+                    }
+                }
+            }
+            url = f"https://api.notion.com/v1/pages/{
+                updated_notion.notion_page_id}"
+            response = requests.patch(
+                url, json=notion_update_data, headers=headers)
+
+            if response.status_code not in [200, 202]:
+                logger.error(
+                    "Erro ao atualizar a página no Notion: %s", response.text)
+                raise Exception("Erro ao atualizar a página no Notion")
+
+            notion_data = {
+                "notion_page_id": updated_notion.notion_page_id,
+                "nome":  data.get("nome", updated_notion.nome),
+                "entradas": data.get("entradas",  updated_notion.entradas),
+                "saidas": data.get("saidas",  updated_notion.saidas),
+                "saldo": data.get("saldo",  updated_notion.saldo),
+            }
+            save_or_update_in_sheet(notion_data)
+
+            # Serializar o objeto atualizado e os dados da resposta
+            serialized_notion = FinancasSerializer(updated_notion).data
+            response_data = {
+                "message": "Finança atualizada com sucesso", "data": serializer.data}
+
+            # Registrar os dados no log em formato JSON
+            logger.info("Dados Atualizados: %s", json.dumps(
+                serialized_notion, indent=4, ensure_ascii=False))
+            logger.info("Resposta: %s", json.dumps(
+                response_data, indent=4, ensure_ascii=False))
+
+            return Response(response_data, status=status.HTTP_200_OK)
+        except Exception as erro:
+            logger.error("Erro ao atualizar Notion: %s", erro)
+            return Response({"message": "Erro ao atualizar tarefa"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class FinancasListView(generics.ListAPIView):
     queryset = Financas.objects.all()
     serializer_class = FinancasSerializer
+
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
 
 class FinancasFindByIdView(generics.RetrieveAPIView):
@@ -242,13 +314,25 @@ class FinancasFindByIdView(generics.RetrieveAPIView):
     serializer_class = FinancasSerializer
     lookup_field = 'pk'
 
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
 
 class FinancasFindyByNotionIdView(generics.RetrieveAPIView):
     queryset = Financas.objects.all()
     serializer_class = FinancasSerializer
     lookup_field = 'notion_page_id'
 
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
 
 class FinancasDeleteView(generics.DestroyAPIView):
     queryset = Financas.objects.all()
     serializer_class = FinancasSerializer
+
+    def delete(self, request, *args, **kwargs):
+        return super().delete(request, *args, **kwargs)
