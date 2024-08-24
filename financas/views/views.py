@@ -44,6 +44,7 @@ def get_data_from_notion():
 
 # get_data_from_notion()
 
+# obter dados das propriedades do Notion
 
 def get_database_properties():
     url = f"https://api.notion.com/v1/databases/{banco_notion}"
@@ -55,8 +56,7 @@ def get_database_properties():
         print(f"Erro ao buscar propriedades do banco de dados: {
               response.text}")
 
-
-get_database_properties()
+# get_database_properties()
 
 
 def save_or_update_in_sheet(notion_data):
@@ -132,22 +132,37 @@ def save_or_update_in_sheet(notion_data):
         raise
 
 
-def delete_from_notion(notion_page_id):
-    url = f"https://api.notion.com/v1/pages/{notion_page_id}"
-    headers = {
-        "Authorization": f"Bearer {notion_token}",
-        "Content-Type": "application/json",
-        "Notion-Version": "2022-06-28",
-    }
-    data = {
-        "archived": True
-    }
-    response = requests.patch(url, json=data, headers=headers)
-    if response.status_code != 200:
-        logger.error("Erro ao excluir a página no Notion: %s", response.text)
-        raise Exception("Erro ao excluir a página no Notion")
-    logger.info(
-        "Página com Notion Page ID %s arquivada no Notion.", notion_page_id)
+# Excluir dados do Excel
+
+def delete_from_sheet(notion_page_id):
+    file_path = "./planilhas/Finanças.xlsx"
+    sheet_name = "Finanças"
+
+    if not os.path.exists(file_path):
+        logger.warning("O arquivo de planilha não foi encontrado.")
+        return
+
+    workbook = openpyxl.load_workbook(file_path)
+
+    if sheet_name not in workbook.sheetnames:
+        logger.warning("A planilha '%s' não existe no arquivo.", sheet_name)
+        return
+
+    worksheet = workbook[sheet_name]
+
+    # Encontre e exclua a linha com o Notion Page ID correspondente
+    rows_to_delete = []
+    for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, values_only=False):
+        if row[4].value == notion_page_id:
+            rows_to_delete.append(row[0].row)
+
+    # Excluir as linhas encontradas na ordem inversa
+    for row_idx in reversed(rows_to_delete):
+        worksheet.delete_rows(row_idx)
+
+    workbook.save(file_path)
+    logger.info(f"Linhas com Notion Page ID {
+                notion_page_id} excluídas da planilha.")
 
 
 class FinancasCreateView(generics.CreateAPIView):
@@ -317,9 +332,6 @@ class FinancasFindByIdView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
-
 
 class FinancasFindyByNotionIdView(generics.RetrieveAPIView):
     queryset = Financas.objects.all()
@@ -335,4 +347,39 @@ class FinancasDeleteView(generics.DestroyAPIView):
     serializer_class = FinancasSerializer
 
     def delete(self, request, *args, **kwargs):
-        return super().delete(request, *args, **kwargs)
+        try:
+            # Obter a instância do objeto a ser excluído
+            instance = self.get_object()
+            notion_page_id = instance.notion_page_id
+
+            # Excluir a página no Notion
+            url = f"https://api.notion.com/v1/pages/{notion_page_id}"
+            response = requests.patch(
+                url, json={"archived": True}, headers=headers)
+            if response.status_code != 200:
+                logger.error(
+                    "Erro ao excluir a página no Notion: %s", response.text)
+                raise Exception("Erro ao excluir a página no Notion")
+            logger.info(
+                "Página com Notion Page ID %s arquivada no Notion.", notion_page_id)
+
+            # Excluir da planilha de Excel
+            delete_from_sheet(notion_page_id)
+
+            # Excluir do banco de dados
+            instance.delete()
+            logger.info(
+                "Objeto com Notion Page ID %s excluído do banco de dados.", notion_page_id)
+
+            # Obter detalhes do objeto excluído para retornar na resposta
+            serialized_notion = FinancasSerializer(instance).data
+
+            # Registrar o objeto excluído no console
+            logger.info("Objeto excluído: %s", json.dumps(
+                serialized_notion, indent=4, ensure_ascii=False))
+
+            # Retornar o objeto excluído na resposta da API
+            return Response({"message": "Finança excluída com sucesso", "data": serialized_notion}, status=status.HTTP_204_NO_CONTENT)
+        except Exception as erro:
+            logger.error("Erro ao excluir finança: %s", erro)
+            return Response({"message": "Erro ao excluir finança"}, status=status.HTTP_400_BAD_REQUEST)
