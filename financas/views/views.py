@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import generics
 from rest_framework import status
 from dotenv import load_dotenv
-import financas
+from tabulate import tabulate
 import openpyxl
 import requests
 import logging
@@ -70,33 +70,43 @@ def save_or_update_in_sheet(notion_data):
             workbook = openpyxl.Workbook()
             worksheet = workbook.active
             worksheet.title = sheet_name
-            worksheet.append(
-                ["Nome", "Entradas", "Saídas", "Saldo", "Notion Page ID"]
-            )
+            worksheet.append(["Nome", "Entradas", "Saídas",
+                             "Saldo", "Notion Page ID"])
             workbook.save(file_path)
 
         # Carrega o workbook existente
+        logger.debug("Tentando carregar a planilha")
         workbook = openpyxl.load_workbook(file_path)
+        logger.debug("Planilha carregada com sucesso")
+
         if sheet_name in workbook.sheetnames:
             worksheet = workbook[sheet_name]
         else:
             worksheet = workbook.create_sheet(title=sheet_name)
-            worksheet.append(
-                ["Nome", "Entradas", "Saídas", "Saldo", "Notion Page ID"]
-            )
+            worksheet.append(["Nome", "Entradas", "Saídas",
+                             "Saldo", "Notion Page ID"])
 
         # Atualiza ou adiciona a linha na planilha
         id_exists = False
-        for row in worksheet.iter_rows(min_row=2, values_only=False):
-            if row[4].value == notion_data["notion_page_id"]:
+        logger.debug(
+            "Iniciando verificação de existência do Notion Page ID na planilha")
+
+        for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, values_only=False):
+            notion_id = row[4].value
+            if notion_id == notion_data["notion_page_id"]:
+                logger.debug(f"ID {notion_id} encontrado na linha {
+                             row[0].row}, atualizando dados")
                 row[0].value = notion_data["nome"]
                 row[1].value = notion_data["entradas"]
                 row[2].value = notion_data["saidas"]
                 row[3].value = notion_data["saldo"]
                 id_exists = True
+                updated_row = [notion_data["nome"], notion_data["entradas"],
+                               notion_data["saidas"], notion_data["saldo"], notion_data["notion_page_id"]]
                 break
 
         if not id_exists:
+            logger.debug("ID não encontrado, adicionando nova linha")
             worksheet.append([
                 notion_data["nome"],
                 notion_data["entradas"],
@@ -104,9 +114,18 @@ def save_or_update_in_sheet(notion_data):
                 notion_data["saldo"],
                 notion_data["notion_page_id"]
             ])
+            updated_row = [notion_data["nome"], notion_data["entradas"],
+                           notion_data["saidas"], notion_data["saldo"], notion_data["notion_page_id"]]
 
         workbook.save(file_path)
         logger.info(f"Planilha atualizada e salva em: {file_path}")
+
+        # Log do conteúdo atualizado da linha
+        logger.info("Conteúdo da linha atualizada:")
+        table_headers = ["Nome", "Entradas",
+                         "Saídas", "Saldo", "Notion Page ID"]
+        logger.info(
+            tabulate([updated_row], headers=table_headers, tablefmt="grid"))
 
     except Exception as e:
         logger.error(f"Erro ao atualizar ou salvar a planilha: {e}")
