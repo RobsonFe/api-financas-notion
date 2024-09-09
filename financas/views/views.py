@@ -260,18 +260,23 @@ class FinancasUpdateView(generics.UpdateAPIView):
             serializer.is_valid(raise_exception=True)
             self.perform_update(serializer)
             updated_notion = serializer.instance
+
+            entradas = float(data.get("entradas", 0))
+            saidas = float(data.get("saidas", 0))
+            saldo = float(data.get("saldo", 0))
+
             # Atualizar a página do Notion
 
             notion_update_data = {
                 "properties": {
                     "umtC": {
-                        "number": data.get("entradas", 0)
+                        "number": entradas
                     },
                     "wFRQ": {
-                        "number": data.get("saidas", 0)
+                        "number": saidas
                     },
                     "~Pfs": {
-                        "number": data.get("saldo", 0)
+                        "number": saldo
                     },
                     "title": {
                         "title": [
