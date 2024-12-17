@@ -1,4 +1,4 @@
-from .models import financas_model
+from .financas_model import Financas
 
 __All__ = [
     "financas_model"
