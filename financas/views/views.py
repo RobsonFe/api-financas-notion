@@ -1,11 +1,10 @@
 from financas.serializer.dto.serializers import FinancasSerializer
+from financas.utils.create_xlsx import save_sheet, update_sheet
 from financas.models.entity.financas_model import Financas
 from rest_framework.response import Response
 from rest_framework import generics
 from rest_framework import status
 from dotenv import load_dotenv
-from tabulate import tabulate
-import openpyxl
 import requests
 import logging
 import json
@@ -29,141 +28,6 @@ if not notion_token or not banco_notion:
     raise ValueError(
         "Token de acesso ao Notion ou ID do banco não encontrado no arquivo .env"
     )
-
-# Buscar dados no Notion
-
-
-def get_data_from_notion():
-    search_params = {"filter": {"value": "page", "property": "object"}}
-    search_response = requests.post(
-        f'https://api.notion.com/v1/search',
-        json=search_params, headers=headers)
-    data = json.dumps(search_response.json(), indent=4, ensure_ascii=False)
-    print(data)
-
-
-# get_data_from_notion()
-
-# obter dados das propriedades do Notion
-
-def get_database_properties():
-    url = f"https://api.notion.com/v1/databases/{banco_notion}"
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        properties = response.json().get("properties", {})
-        print(json.dumps(properties, indent=4, ensure_ascii=False))
-    else:
-        print(f"Erro ao buscar propriedades do banco de dados: {
-              response.text}")
-
-# get_database_properties()
-
-
-def save_or_update_in_sheet(notion_data):
-    logger.debug(f"Chamando save_or_update_in_sheet com dados: {notion_data}")
-    file_path = "./planilhas/Finanças.xlsx"
-    sheet_name = "Finanças"
-
-    try:
-        # Cria um novo workbook se não existir
-        if not os.path.exists(file_path):
-            workbook = openpyxl.Workbook()
-            worksheet = workbook.active
-            worksheet.title = sheet_name
-            worksheet.append(["Nome", "Entradas", "Saídas",
-                             "Saldo", "Notion Page ID"])
-            workbook.save(file_path)
-
-        # Carrega o workbook existente
-        logger.debug("Tentando carregar a planilha")
-        workbook = openpyxl.load_workbook(file_path)
-        logger.debug("Planilha carregada com sucesso")
-
-        if sheet_name in workbook.sheetnames:
-            worksheet = workbook[sheet_name]
-        else:
-            worksheet = workbook.create_sheet(title=sheet_name)
-            worksheet.append(["Nome", "Entradas", "Saídas",
-                             "Saldo", "Notion Page ID"])
-
-        # Atualiza ou adiciona a linha na planilha
-        id_exists = False
-        logger.debug(
-            "Iniciando verificação de existência do Notion Page ID na planilha")
-
-        for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, values_only=False):
-            notion_id = row[4].value
-            if notion_id == notion_data["notion_page_id"]:
-                logger.debug(f"ID {notion_id} encontrado na linha {
-                             row[0].row}, atualizando dados")
-                row[0].value = notion_data["nome"]
-                row[1].value = notion_data["entradas"]
-                row[2].value = notion_data["saidas"]
-                row[3].value = notion_data["saldo"]
-                id_exists = True
-                updated_row = [notion_data["nome"], notion_data["entradas"],
-                               notion_data["saidas"], notion_data["saldo"], notion_data["notion_page_id"]]
-                break
-
-        if not id_exists:
-            logger.debug("ID não encontrado, adicionando nova linha")
-            worksheet.append([
-                notion_data["nome"],
-                notion_data["entradas"],
-                notion_data["saidas"],
-                notion_data["saldo"],
-                notion_data["notion_page_id"]
-            ])
-            updated_row = [notion_data["nome"], notion_data["entradas"],
-                           notion_data["saidas"], notion_data["saldo"], notion_data["notion_page_id"]]
-
-        workbook.save(file_path)
-        logger.info(f"Planilha atualizada e salva em: {file_path}")
-
-        # Log do conteúdo atualizado da linha
-        logger.info("Conteúdo da linha atualizada:")
-        table_headers = ["Nome", "Entradas",
-                         "Saídas", "Saldo", "Notion Page ID"]
-        logger.info(
-            tabulate([updated_row], headers=table_headers, tablefmt="grid"))
-
-    except Exception as e:
-        logger.error(f"Erro ao atualizar ou salvar a planilha: {e}")
-        raise
-
-
-# Excluir dados do Excel
-
-def delete_from_sheet(notion_page_id):
-    file_path = "./planilhas/Finanças.xlsx"
-    sheet_name = "Finanças"
-
-    if not os.path.exists(file_path):
-        logger.warning("O arquivo de planilha não foi encontrado.")
-        return
-
-    workbook = openpyxl.load_workbook(file_path)
-
-    if sheet_name not in workbook.sheetnames:
-        logger.warning("A planilha '%s' não existe no arquivo.", sheet_name)
-        return
-
-    worksheet = workbook[sheet_name]
-
-    # Encontre e exclua a linha com o Notion Page ID correspondente
-    rows_to_delete = []
-    for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, values_only=False):
-        if row[4].value == notion_page_id:
-            rows_to_delete.append(row[0].row)
-
-    # Excluir as linhas encontradas na ordem inversa
-    for row_idx in reversed(rows_to_delete):
-        worksheet.delete_rows(row_idx)
-
-    workbook.save(file_path)
-    logger.info(f"Linhas com Notion Page ID {
-                notion_page_id} excluídas da planilha.")
-
 
 class FinancasCreateView(generics.CreateAPIView):
     serializer_class = FinancasSerializer
@@ -225,7 +89,7 @@ class FinancasCreateView(generics.CreateAPIView):
                     "saidas": data["saidas"],
                     "saldo": data["saldo"],
                 }
-                save_or_update_in_sheet(notion_data)
+                save_sheet(notion_data)
 
                 # Registrar os dados no log em formato JSON
                 logger.info(json.dumps(serialized_notion,
@@ -302,7 +166,7 @@ class FinancasUpdateView(generics.UpdateAPIView):
                 "saidas": data.get("saidas",  updated_notion.saidas),
                 "saldo": data.get("saldo",  updated_notion.saldo),
             }
-            save_or_update_in_sheet(notion_data)
+            update_sheet(notion_data)
 
             # Serializar o objeto atualizado e os dados da resposta
             serialized_notion = FinancasSerializer(updated_notion).data
@@ -369,7 +233,7 @@ class FinancasDeleteView(generics.DestroyAPIView):
                 "Página com Notion Page ID %s arquivada no Notion.", notion_page_id)
 
             # Excluir da planilha de Excel
-            delete_from_sheet(notion_page_id)
+            delete_sheet(notion_page_id)
 
             # Excluir do banco de dados
             instance.delete()
