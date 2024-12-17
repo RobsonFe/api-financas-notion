@@ -53,6 +53,6 @@ def get_database_properties():
 
 # Teste de requisição para API do Notion.
 if __name__ == "__main__":
-    pass
+    # pass
     # get_data_from_notion()
-    # get_database_properties()
+    get_database_properties()
