@@ -50,12 +50,12 @@ def save_sheet(notion_data):
     
 
 def update_sheet(notion_data):
+        workbook = openpyxl.Workbook()
+        worksheet = workbook.active
 
         try:
             logger.debug(f"Atualizando dados: {notion_data}")
             file_path = "./planilhas/Finanças.xlsx"
-            workbook = openpyxl.Workbook()
-            worksheet = workbook.active
         
             logger.debug("Iniciando verificação de existência do Notion Page ID na planilha")
             
