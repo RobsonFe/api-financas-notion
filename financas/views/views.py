@@ -4,6 +4,7 @@ from financas.models.financas_model import Financas
 from rest_framework.response import Response
 from rest_framework import generics
 from rest_framework import status
+from django.db import transaction
 from dotenv import load_dotenv
 import requests
 import logging
@@ -36,7 +37,8 @@ class FinancasCreateView(generics.CreateAPIView):
         fields = [field.name for field in Financas._meta.get_fields()]
         fields.remove('notion_page_id')
         return fields
-
+    
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         try:
             data = request.data
@@ -114,6 +116,7 @@ class FinancasUpdateView(generics.UpdateAPIView):
     serializer_class = FinancasSerializer
     lookup_field = 'pk'
 
+    @transaction.atomic
     def update(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
@@ -189,6 +192,10 @@ class FinancasListView(generics.ListAPIView):
     queryset = Financas.objects.all()
     serializer_class = FinancasSerializer
 
+    @property
+    def read_only(self):
+        return True
+    
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
@@ -198,6 +205,10 @@ class FinancasFindByIdView(generics.RetrieveAPIView):
     serializer_class = FinancasSerializer
     lookup_field = 'pk'
 
+    @property
+    def read_only(self):
+        return True
+    
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
@@ -207,6 +218,10 @@ class FinancasFindyByNotionIdView(generics.RetrieveAPIView):
     serializer_class = FinancasSerializer
     lookup_field = 'notion_page_id'
 
+    @property
+    def read_only(self):
+        return True
+    
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 

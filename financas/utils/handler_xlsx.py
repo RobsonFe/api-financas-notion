@@ -11,11 +11,11 @@ def save_sheet(notion_data):
     logger.debug(f"Chamando save_or_update_in_sheet com dados: {notion_data}")
     file_path = "./planilhas/Finanças.xlsx"
     sheet_name = "Finanças"
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
 
     try:
         if not os.path.exists(file_path):
-            workbook = openpyxl.Workbook()
-            worksheet = workbook.active
             worksheet.title = sheet_name
             worksheet.append(
                 [
@@ -45,7 +45,7 @@ def save_sheet(notion_data):
                 )
 
     except Exception as e:
-        logger.error(f"Erro ao atualizar ou salvar a planilha: {e}")
+        logger.error(f"Erro ao salvar a planilha: {e}")
         raise
     
 
@@ -55,10 +55,10 @@ def update_sheet(notion_data):
             logger.debug(f"Atualizando dados: {notion_data}")
             file_path = "./planilhas/Finanças.xlsx"
             workbook = openpyxl.Workbook()
+            worksheet = workbook.active
         
             logger.debug("Iniciando verificação de existência do Notion Page ID na planilha")
             
-            worksheet = workbook.active
             id_exists = False
             updated_row = []
             
