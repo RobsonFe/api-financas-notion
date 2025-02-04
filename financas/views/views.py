@@ -84,21 +84,20 @@ class FinancasCreateView(generics.CreateAPIView):
                 serialized_notion = serializer.data
 
                 # Atualizar a planilha
-                notion_data = {
-                    "notion_page_id": notion_id,
-                    "nome": data["nome"],
-                    "entradas": data["entradas"],
-                    "saidas": data["saidas"],
-                    "saldo": data["saldo"],
-                }
-                save_sheet(notion_data)
+                # notion_data = {
+                #     "notion_page_id": notion_id,
+                #     "nome": data["nome"],
+                #     "entradas": data["entradas"],
+                #     "saidas": data["saidas"],
+                #     "saldo": data["saldo"],
+                # }
+                # save_sheet(notion_data)
 
                 # Registrar os dados no log em formato JSON
-                logger.info(json.dumps(serialized_notion,
-                            indent=4, ensure_ascii=False))
+                logger.info(json.dumps(serialized_notion, indent=4, ensure_ascii=False))
 
                 # Retornar os dados criados na resposta
-                return Response({"message": "Finança criada com sucesso", "data": serialized_notion}, status=status.HTTP_201_CREATED)
+                return Response({"message": "Finança criada com sucesso", "result": serialized_notion}, status=status.HTTP_201_CREATED)
 
             else:
                 # Se a resposta do Notion não for 200 ou 201, tratar o erro...
@@ -152,35 +151,29 @@ class FinancasUpdateView(generics.UpdateAPIView):
                     }
                 }
             }
-            url = f"https://api.notion.com/v1/pages/{
-                updated_notion.notion_page_id}"
-            response = requests.patch(
-                url, json=notion_update_data, headers=headers)
+            url = f"https://api.notion.com/v1/pages/{updated_notion.notion_page_id}"
+            response = requests.patch(url, json=notion_update_data, headers=headers)
 
             if response.status_code not in [200, 202]:
-                logger.error(
-                    "Erro ao atualizar a página no Notion: %s", response.text)
+                logger.error("Erro ao atualizar a página no Notion: %s", response.text)
                 raise Exception("Erro ao atualizar a página no Notion")
 
-            notion_data = {
-                "notion_page_id": updated_notion.notion_page_id,
-                "nome":  data.get("nome", updated_notion.nome),
-                "entradas": data.get("entradas",  updated_notion.entradas),
-                "saidas": data.get("saidas",  updated_notion.saidas),
-                "saldo": data.get("saldo",  updated_notion.saldo),
-            }
-            update_sheet(notion_data)
+            # notion_data = {
+            #     "notion_page_id": updated_notion.notion_page_id,
+            #     "nome":  data.get("nome", updated_notion.nome),
+            #     "entradas": data.get("entradas",  updated_notion.entradas),
+            #     "saidas": data.get("saidas",  updated_notion.saidas),
+            #     "saldo": data.get("saldo",  updated_notion.saldo),
+            # }
+            # update_sheet(notion_data)
 
             # Serializar o objeto atualizado e os dados da resposta
             serialized_notion = FinancasSerializer(updated_notion).data
-            response_data = {
-                "message": "Finança atualizada com sucesso", "data": serializer.data}
+            response_data = {"message": "Finança atualizada com sucesso", "result": serializer.data}
 
             # Registrar os dados no log em formato JSON
-            logger.info("Dados Atualizados: %s", json.dumps(
-                serialized_notion, indent=4, ensure_ascii=False))
-            logger.info("Resposta: %s", json.dumps(
-                response_data, indent=4, ensure_ascii=False))
+            logger.info("Dados Atualizados: %s", json.dumps(serialized_notion, indent=4, ensure_ascii=False))
+            logger.info("Resposta: %s", json.dumps(response_data, indent=4, ensure_ascii=False))
 
             return Response(response_data, status=status.HTTP_200_OK)
         except Exception as erro:
@@ -248,7 +241,7 @@ class FinancasDeleteView(generics.DestroyAPIView):
                 "Página com Notion Page ID %s arquivada no Notion.", notion_page_id)
 
             # Excluir da planilha de Excel
-            delete_sheet(notion_page_id)
+            # delete_sheet(notion_page_id)
 
             # Excluir do banco de dados
             instance.delete()
@@ -263,7 +256,7 @@ class FinancasDeleteView(generics.DestroyAPIView):
                 serialized_notion, indent=4, ensure_ascii=False))
 
             # Retornar o objeto excluído na resposta da API
-            return Response({"message": "Finança excluída com sucesso", "data": serialized_notion}, status=status.HTTP_204_NO_CONTENT)
+            return Response({"message": "Finança excluída com sucesso", "result": serialized_notion}, status=status.HTTP_204_NO_CONTENT)
         except Exception as erro:
             logger.error("Erro ao excluir finança: %s", erro)
             return Response({"message": "Erro ao excluir finança"}, status=status.HTTP_400_BAD_REQUEST)
