@@ -1,7 +1,10 @@
+from decimal import Decimal
+import re
 from financas.serializer.serializers import FinancasCreateSerializer, FinancasSerializer, FinancasUpdateSerializer
 from financas.utils.handler_xlsx import save_sheet, update_sheet
 from financas.models.financas_model import Financas
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework import generics
 from rest_framework import status
 from django.db import transaction
@@ -105,6 +108,50 @@ class FinancasCreateView(generics.CreateAPIView):
         except Exception as erro:
             logger.error("Erro ao criar Notion: %s", erro.args)
             return Response({"message": "Erro ao criar finança"}, status=status.HTTP_400_BAD_REQUEST)
+        
+class FinancasCreateNotionView(generics.CreateAPIView):
+    serializer_class = FinancasCreateSerializer
+    
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        try:
+            data = request.data
+            
+            entradas = float(data.get("entradas", 0))
+            saidas = float(data.get("saidas", 0))
+            saldo = entradas - saidas
+            
+            url = "https://api.notion.com/v1/pages"
+            payload = {
+                "parent": {"database_id": banco_notion},
+                "properties": {
+                    "umtC": {  # ID para "Entradas"
+                        "number": entradas
+                    },
+                    "wFRQ": {  # ID para "Saídas "
+                        "number": saidas
+                    },
+                    "~Pfs": {  # ID para "Saldo"
+                        "number": saldo
+                    },
+                    "title": {  # ID para "Nome"
+                        "title": [
+                            {"text": {"content": data.get("nome", "")}}
+                        ]
+                    }
+                }
+            }
+
+            # Esses ID'de entradas facilitam o mapeamento  das informações vindas do Notion,
+            # considerando que cada campo da tabela no Notion tem um ID
+
+            response = requests.post(url, json=payload, headers=headers)
+            
+            return Response({"message": "Finança criada com sucesso no Notion", "result" : response.json()}, status=response.status_code)
+
+        except Exception as erro:
+            logger.error("Erro ao criar Notion: %s", erro.args)
+            return Response({"message": "Erro ao criar finança"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class FinancasUpdateView(generics.UpdateAPIView):
@@ -166,7 +213,64 @@ class FinancasUpdateView(generics.UpdateAPIView):
             return Response(response_data, status=status.HTTP_200_OK)
         except Exception as erro:
             logger.error("Erro ao atualizar Notion: %s", erro)
-            return Response({"message": "Erro ao atualizar tarefa"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Erro ao atualizar finança"}, status=status.HTTP_400_BAD_REQUEST)
+        
+class FinancasUpdateNotionView(APIView):
+    def patch(self, request, notion_page_id):
+        try:
+            if not notion_page_id:
+                return Response({"message": "Erro: id da página do notion é obrigatório"}, status=status.HTTP_400_BAD_REQUEST)
+
+            data = request.data
+            
+            entradas = Decimal(data.get("entradas", 0))
+            saidas = Decimal(data.get("saidas", 0))
+            nome = data.get("nome", "")
+
+            saldo = entradas - saidas
+
+            notion_update_data = {
+                "properties": {
+                    "umtC": {  # Entradas
+                        "number": float(entradas)
+                    },
+                    "wFRQ": {  # Saídas
+                        "number": float(saidas)
+                    },
+                    "~Pfs": {  # Saldo
+                        "number": float(saldo)
+                    },
+                    "title": {  # Nome
+                        "title": [
+                            {"text": {"content": nome}}
+                        ]
+                    }
+                }
+            }
+
+            url = f"https://api.notion.com/v1/pages/{notion_page_id}"
+
+            response = requests.patch(url, json=notion_update_data, headers=headers)
+
+            if response.status_code not in [200, 202]: 
+                logger.error("Erro ao atualizar no Notion: %s", response.text)
+                return Response(
+                    {"message": "Erro ao atualizar no Notion", "error": response.json()},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            response_data = {
+                "message": "Finança atualizada no Notion com sucesso",
+                "notion_response": response.json()
+            }
+
+            logger.info("Dados Atualizados no Notion: %s", json.dumps(response_data, indent=4, ensure_ascii=False))
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as erro:
+            logger.error("Erro ao atualizar no Notion: %s", erro)
+            return Response({"message": "Erro ao atualizar finança no Notion"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class FinancasListView(generics.ListAPIView):
@@ -270,6 +374,30 @@ class FinancasDeleteView(generics.DestroyAPIView):
 
             # Retornar o objeto excluído na resposta da API
             return Response({"message": "Finança excluída com sucesso", "result": serialized_notion}, status=status.HTTP_204_NO_CONTENT)
+        except Exception as erro:
+            logger.error("Erro ao excluir finança: %s", erro)
+            return Response({"message": "Erro ao excluir finança"}, status=status.HTTP_400_BAD_REQUEST)
+        
+class FinancasDeleteNotionView(generics.DestroyAPIView):
+    queryset = Financas.objects.all()
+    serializer_class = FinancasSerializer
+
+    def delete(self, request, *args, **kwargs):
+        try:
+            notion_page_id = kwargs.get("notion_page_id")
+            if not notion_page_id:
+                return Response({"message": "Erro: id da página do notion é obrigatório"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            url = f"https://api.notion.com/v1/pages/{notion_page_id}"
+            response = requests.patch(url, json={"archived": True}, headers=headers)
+            
+            if response.status_code != 200:
+                logger.error("Erro ao excluir a página no Notion: %s", response.text)
+                raise Exception("Erro ao excluir a página no Notion")
+            
+            logger.info("Página com Notion Page ID %s arquivada no Notion.", notion_page_id)
+
+            return Response({"message": "Finança excluída com sucesso do Notion"}, status=status.HTTP_204_NO_CONTENT)
         except Exception as erro:
             logger.error("Erro ao excluir finança: %s", erro)
             return Response({"message": "Erro ao excluir finança"}, status=status.HTTP_400_BAD_REQUEST)
