@@ -12,6 +12,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 notion_token = os.getenv("NOTION_TOKEN")
+id_banco_financas = os.getenv("BANCO_FINANCAS")
+
 headers = {
     'Authorization': f"Bearer {notion_token}",
     'Content-Type': 'application/json',

@@ -18,6 +18,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 notion_token = os.getenv("NOTION_TOKEN")
+
 headers = {
     'Authorization': f"Bearer {notion_token}",
     'Content-Type': 'application/json',
@@ -187,19 +188,20 @@ class FinancasListNotionView(generics.ListAPIView):
         notion_data = []
 
         for item in data:
-            properties = item.get("properties", {})
-            title_list = properties.get("Nome", {}).get("title", [])
-            nome = title_list[0].get("text", {}).get("content", "") if title_list else ""
-            notion_result = {
-                "nome": nome,
-                "entradas": properties.get("Entradas", {}).get("number", 0),
-                "saidas": properties.get("Saídas ", {}).get("number", 0),
-                "saldo": properties.get("Saldo", {}).get("number", 0),
-                "notion_page_id": item.get("id", "")
-            }
-            notion_data.append(notion_result)
+            if not item.get('archived', False):
+                properties = item.get("properties", {})
+                title_list = properties.get("Nome", {}).get("title", [])
+                nome = title_list[0].get("text", {}).get("content", "") if title_list else ""
+                notion_result = {
+                    "nome": nome,
+                    "entradas": properties.get("Entradas", {}).get("number", 0),
+                    "saidas": properties.get("Saídas ", {}).get("number", 0),
+                    "saldo": properties.get("Saldo", {}).get("number", 0),
+                    "notion_page_id": item.get("id", "")
+                }
+                notion_data.append(notion_result)
 
-        return Response({"message": "Dados obtidos com sucesso", "result": notion_data}, status=status.HTTP_200_OK)
+            return Response({"message": "Dados obtidos com sucesso", "result": notion_data}, status=status.HTTP_200_OK)
     
 class FinancasFindByIdView(generics.RetrieveAPIView):
     queryset = Financas.objects.all()
