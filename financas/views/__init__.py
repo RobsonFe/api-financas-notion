@@ -1,4 +1,4 @@
-from .views import FinancasFindyByNotionIdView, FinancasFindByIdView, FinancasCreateView, FinancasUpdateView, FinancasDeleteView, FinancasListView
+from .views import FinancasFindyByNotionIdView, FinancasFindByIdView, FinancasCreateView, FinancasUpdateView, FinancasDeleteView, FinancasListView,FinancasListNotionView
 
 __all_ = [
     "FinancasFindyByNotionIdView",
@@ -7,4 +7,5 @@ __all_ = [
     "FinancasUpdateView",
     "FinancasDeleteView",
     "FinancasListView",
+    "FinancasListNotionView"
 ]

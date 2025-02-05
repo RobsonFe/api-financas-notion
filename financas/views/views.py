@@ -172,7 +172,35 @@ class FinancasListView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
+class FinancasListNotionView(generics.ListAPIView):
+    
+    def list(self, request, *args, **kwargs):
+        search_params = {
+            "filter": {
+                "value": "page",
+                "property": "object"
+            }
+        }
+        response = requests.post(f'https://api.notion.com/v1/search', json=search_params, headers=headers)
+        # data = response.json().get("results", [])[0].get("properties", {})
+        data = response.json().get("results", [])
+        notion_data = []
 
+        for item in data:
+            properties = item.get("properties", {})
+            title_list = properties.get("Nome", {}).get("title", [])
+            nome = title_list[0].get("text", {}).get("content", "") if title_list else ""
+            notion_result = {
+                "nome": nome,
+                "entradas": properties.get("Entradas", {}).get("number", 0),
+                "saidas": properties.get("Saídas ", {}).get("number", 0),
+                "saldo": properties.get("Saldo", {}).get("number", 0),
+                "notion_page_id": item.get("id", "")
+            }
+            notion_data.append(notion_result)
+
+        return Response({"message": "Dados obtidos com sucesso", "result": notion_data}, status=status.HTTP_200_OK)
+    
 class FinancasFindByIdView(generics.RetrieveAPIView):
     queryset = Financas.objects.all()
     serializer_class = FinancasSerializer
