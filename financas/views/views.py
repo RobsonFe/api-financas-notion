@@ -188,10 +188,12 @@ class FinancasListNotionView(generics.ListAPIView):
         notion_data = []
 
         for item in data:
-            if not item.get('archived', False):
+            if not item.get('archived', False) and not item.get('in_trash', False):
                 properties = item.get("properties", {})
                 title_list = properties.get("Nome", {}).get("title", [])
                 nome = title_list[0].get("text", {}).get("content", "") if title_list else ""
+                if not nome:
+                    continue
                 notion_result = {
                     "nome": nome,
                     "entradas": properties.get("Entradas", {}).get("number", 0),
@@ -201,7 +203,7 @@ class FinancasListNotionView(generics.ListAPIView):
                 }
                 notion_data.append(notion_result)
 
-            return Response({"message": "Dados obtidos com sucesso", "result": notion_data}, status=status.HTTP_200_OK)
+        return Response({"message": "Dados obtidos com sucesso", "result": notion_data}, status=status.HTTP_200_OK)
     
 class FinancasFindByIdView(generics.RetrieveAPIView):
     queryset = Financas.objects.all()
