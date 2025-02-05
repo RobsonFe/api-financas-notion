@@ -34,10 +34,10 @@ if not notion_token or not banco_notion:
 class FinancasCreateView(generics.CreateAPIView):
     serializer_class = FinancasSerializer
 
-    def get_fields(self):
-        fields = [field.name for field in Financas._meta.get_fields()]
-        fields.remove('notion_page_id')
-        return fields
+    # def get_fields(self):
+    #     fields = [field.name for field in Financas._meta.get_fields()]
+    #     fields.remove('notion_page_id')
+    #     return fields
     
     @transaction.atomic
     def create(self, request, *args, **kwargs):
