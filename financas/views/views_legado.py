@@ -91,7 +91,8 @@ class FinancasCreateView(generics.CreateAPIView):
 
             else:
                 # Se a resposta do Notion não for 200 ou 201, tratar o erro...
-                logger.error("Erro ao criar página no Notion: %s", response.text)
+                logger.error(
+                    "Erro ao criar página no Notion: %s", response.text)
                 return Response({"message": "Erro ao criar finança no Notion"}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as erro:
@@ -147,6 +148,15 @@ class FinancasUpdateView(generics.UpdateAPIView):
                 logger.error("Erro ao atualizar a página no Notion: %s", response.text)
                 raise Exception("Erro ao atualizar a página no Notion")
 
+            # notion_data = {
+            #     "notion_page_id": updated_notion.notion_page_id,
+            #     "nome":  data.get("nome", updated_notion.nome),
+            #     "entradas": data.get("entradas",  updated_notion.entradas),
+            #     "saidas": data.get("saidas",  updated_notion.saidas),
+            #     "saldo": data.get("saldo",  updated_notion.saldo),
+            # }
+            # update_sheet(notion_data)
+
             # Serializar o objeto atualizado e os dados da resposta
             serialized_notion = FinancasSerializer(updated_notion).data
             response_data = {"message": "Finança atualizada com sucesso", "result": serializer.data}
@@ -171,6 +181,32 @@ class FinancasListView(generics.ListAPIView):
     
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
+# class FinancasListView(generics.ListAPIView):
+#     queryset = Financas.objects.all()
+#     serializer_class = FinancasSerializer
+
+#     @property
+#     def read_only(self):
+#         return True
+    
+#     def list(self, request, *args, **kwargs):
+#         search_params = {
+#         "filter": {
+#                 "value": 
+#                 "page", 
+#                 "property": "object"
+#                 }
+#             }
+#         response = requests.post(f'https://api.notion.com/v1/search',json=search_params, headers=headers)
+#         # data = json.dumps(response.json(), indent=4, ensure_ascii=False)
+#         # data = response.json().get('object', {})
+#         # data = response.json().get("results", {})[0].get("properties", {})['Entradas']['number']
+#         # data = response.json().get("results", {})[0].get("properties", {})['Entradas']
+#         # data = response.json().get("results", {})[0].get("properties", {})
+#         # data = response.json().get("results", {})[0]
+#         data = response.json().get("results", {})
+#         result = json.dumps(data, indent=4, ensure_ascii=False)
+#         return super().list(request, *args, **kwargs)
 
 
 class FinancasFindByIdView(generics.RetrieveAPIView):
@@ -211,23 +247,29 @@ class FinancasDeleteView(generics.DestroyAPIView):
 
             # Excluir a página no Notion
             url = f"https://api.notion.com/v1/pages/{notion_page_id}"
-            response = requests.patch(url, json={"archived": True}, headers=headers)
-            
+            response = requests.patch(
+                url, json={"archived": True}, headers=headers)
             if response.status_code != 200:
-                logger.error("Erro ao excluir a página no Notion: %s", response.text)
+                logger.error(
+                    "Erro ao excluir a página no Notion: %s", response.text)
                 raise Exception("Erro ao excluir a página no Notion")
-            
-            logger.info("Página com Notion Page ID %s arquivada no Notion.", notion_page_id)
+            logger.info(
+                "Página com Notion Page ID %s arquivada no Notion.", notion_page_id)
+
+            # Excluir da planilha de Excel
+            # delete_sheet(notion_page_id)
 
             # Excluir do banco de dados
             instance.delete()
-            logger.info("Objeto com Notion Page ID %s excluído do banco de dados.", notion_page_id)
+            logger.info(
+                "Objeto com Notion Page ID %s excluído do banco de dados.", notion_page_id)
 
             # Obter detalhes do objeto excluído para retornar na resposta
             serialized_notion = FinancasSerializer(instance).data
 
             # Registrar o objeto excluído no console
-            logger.info("Objeto excluído: %s", json.dumps(serialized_notion, indent=4, ensure_ascii=False))
+            logger.info("Objeto excluído: %s", json.dumps(
+                serialized_notion, indent=4, ensure_ascii=False))
 
             # Retornar o objeto excluído na resposta da API
             return Response({"message": "Finança excluída com sucesso", "result": serialized_notion}, status=status.HTTP_204_NO_CONTENT)
