@@ -1,4 +1,4 @@
-from financas.serializer.serializers import FinancasSerializer
+from financas.serializer.serializers import FinancasCreateSerializer, FinancasSerializer, FinancasUpdateSerializer
 from financas.utils.handler_xlsx import save_sheet, update_sheet
 from financas.models.financas_model import Financas
 from rest_framework.response import Response
@@ -32,7 +32,7 @@ if not notion_token or not banco_notion:
     )
 
 class FinancasCreateView(generics.CreateAPIView):
-    serializer_class = FinancasSerializer
+    serializer_class = FinancasCreateSerializer
 
     # def get_fields(self):
     #     fields = [field.name for field in Financas._meta.get_fields()]
@@ -43,18 +43,23 @@ class FinancasCreateView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         try:
             data = request.data
+            
+            entradas = float(data.get("entradas", 0))
+            saidas = float(data.get("saidas", 0))
+            saldo = entradas - saidas
+            
             url = "https://api.notion.com/v1/pages"
             payload = {
                 "parent": {"database_id": banco_notion},
                 "properties": {
                     "umtC": {  # ID para "Entradas"
-                        "number": data.get("entradas", 0)
+                        "number": entradas
                     },
                     "wFRQ": {  # ID para "Saídas "
-                        "number": data.get("saidas", 0)
+                        "number": saidas
                     },
                     "~Pfs": {  # ID para "Saldo"
-                        "number": data.get("saldo", 0)
+                        "number": saldo
                     },
                     "title": {  # ID para "Nome"
                         "title": [
@@ -72,13 +77,15 @@ class FinancasCreateView(generics.CreateAPIView):
             if response.status_code in [200, 201]:
                 # Salvar a finanças no banco de dados
                 notion_id = response.json()["id"]
-                notion = Financas.objects.create(
+                notion = Financas(
                     nome=data["nome"],
                     entradas=data["entradas"],
                     saidas=data["saidas"],
-                    saldo=data["saldo"],
+                    saldo=saldo,
                     notion_page_id=notion_id
                 )
+                notion.save()
+                
 
                 # Serializar os dados do objeto criado para retorno das respostas
                 serializer = self.get_serializer(notion)
@@ -96,13 +103,13 @@ class FinancasCreateView(generics.CreateAPIView):
                 return Response({"message": "Erro ao criar finança no Notion"}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as erro:
-            logger.error("Erro ao criar Notion: %s", erro)
+            logger.error("Erro ao criar Notion: %s", erro.args)
             return Response({"message": "Erro ao criar finança"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class FinancasUpdateView(generics.UpdateAPIView):
     queryset = Financas.objects.all()
-    serializer_class = FinancasSerializer
+    serializer_class = FinancasUpdateSerializer
     lookup_field = 'pk'
 
     @transaction.atomic
@@ -119,7 +126,7 @@ class FinancasUpdateView(generics.UpdateAPIView):
 
             entradas = float(data.get("entradas", 0))
             saidas = float(data.get("saidas", 0))
-            saldo = float(data.get("saldo", 0))
+            saldo = entradas - saidas
 
             # Atualizar a página do Notion
 
@@ -150,7 +157,7 @@ class FinancasUpdateView(generics.UpdateAPIView):
 
             # Serializar o objeto atualizado e os dados da resposta
             serialized_notion = FinancasSerializer(updated_notion).data
-            response_data = {"message": "Finança atualizada com sucesso", "result": serializer.data}
+            response_data = {"message": "Finança atualizada com sucesso", "result": json.loads(json.dumps(serializer.data, default=float))}
 
             # Registrar os dados no log em formato JSON
             logger.info("Dados Atualizados: %s", json.dumps(serialized_notion, indent=4, ensure_ascii=False))

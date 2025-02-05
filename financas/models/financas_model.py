@@ -9,7 +9,7 @@ class Financas(models.Model):
     nome = models.CharField(max_length=255)
     entradas = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     saidas = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    saldo = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    saldo = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, blank=True, null=True)
     notion_page_id = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
