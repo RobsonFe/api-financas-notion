@@ -340,6 +340,27 @@ class FinancasFindyByNotionIdView(generics.RetrieveAPIView):
     
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
+    
+class FinancasFindyByIdNotionView(generics.RetrieveAPIView):
+    queryset = Financas.objects.all()
+    serializer_class = FinancasSerializer
+    
+    @property
+    def read_only(self):
+        return True
+    
+    def get(self, request, *args, **kwargs):
+        notion_page_id = kwargs.get("notion_page_id")
+        try:
+            url = f"https://api.notion.com/v1/pages/{notion_page_id}"
+            response = requests.get(url, headers=headers)
+            if response.status_code != 200:
+                logger.error("Erro ao buscar a página no Notion: %s", response.text)
+                raise Exception("Erro ao buscar a página no Notion")
+            return Response({"message": "Dados obtidos com sucesso", "result": response.json()}, status=status.HTTP_200_OK)
+        except Exception as erro:
+            logger.error("Erro ao buscar finança: %s", erro)
+            return Response({"message": "Erro ao buscar finança"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class FinancasDeleteView(generics.DestroyAPIView):
